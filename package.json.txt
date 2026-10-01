@@ -1,0 +1,17 @@
+{
+  "name": "personal-buddy",
+  "version": "1.0.0",
+  "description": "Personal Buddy - Personal Life Management Website",
+  "main": "xyz.js",
+  "scripts": {
+    "start": "node xyz.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.4.1",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.6"
+  }
+}
