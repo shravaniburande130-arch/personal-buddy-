@@ -36,7 +36,7 @@ const express = require("express");
 const Database = require("better-sqlite3");
 const bcrypt = require("bcryptjs");
 const session = require("express-session");
-const nodemailer = require("nodemailer");
+const https = require("https");
 const cron = require("node-cron");
 
 const app = express();
@@ -65,8 +65,9 @@ const PORT = process.env.PORT || 3000;
    Registration Email = Reminder Email
 */
 
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+const RESEND_FROM_EMAIL = "onboarding@resend.dev";
 
 
 /* =========================================================
@@ -152,6 +153,20 @@ const transporter = nodemailer.createTransport({
 
 
 /* =========================================================
+   GMAIL TRANSPORTER
+========================================================= */
+
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+
+    auth: {
+        user: GMAIL_USER,
+        pass: GMAIL_APP_PASSWORD
+    }
+});
+
+
+/* =========================================================
    GMAIL CONNECTION TEST
 ========================================================= */
 
@@ -190,8 +205,6 @@ if (
     );
 
 }
-
-
 /* =========================================================
    LOGIN CHECK
 ========================================================= */
@@ -784,195 +797,137 @@ app.delete(
 
 
 /* =========================================================
-   SEND REMINDER EMAIL
+   SEND REMINDER EMAIL - RESEND
 ========================================================= */
 
-async function sendReminderEmail(
-    user,
-    reminder
-) {
+async function sendReminderEmail(user, reminder) {
 
     try {
 
-        if (
-            GMAIL_USER ===
-            "YOUR_GMAIL@gmail.com"
-        ) {
-
-            console.log(
-                "❌ Gmail USER not configured."
-            );
-
+        if (!RESEND_API_KEY) {
+            console.log("❌ RESEND_API_KEY is not configured.");
             return false;
-
         }
 
+        const emailHTML =
+            "<!DOCTYPE html>" +
+            "<html>" +
+            "<body style=\"" +
+            "margin:0;padding:30px;background:#ffeaf3;" +
+            "font-family:Arial,sans-serif;\">" +
 
-        if (
-            GMAIL_APP_PASSWORD ===
-            "YOUR_16_DIGIT_GMAIL_APP_PASSWORD"
-        ) {
+            "<div style=\"" +
+            "max-width:600px;margin:auto;background:white;" +
+            "padding:35px;border-radius:25px;" +
+            "box-shadow:0 10px 35px rgba(0,0,0,.12);\">" +
 
-            console.log(
-                "❌ Gmail App Password not configured."
-            );
+            "<h1 style=\"text-align:center;color:#d63384;\">" +
+            "🌸 Personal Buddy" +
+            "</h1>" +
 
-            return false;
+            "<h2 style=\"color:#1976d2;\">" +
+            "Hello " +
+            escapeEmailHTML(user.name) +
+            " 👋" +
+            "</h2>" +
 
-        }
+            "<p>This is your Personal Buddy reminder.</p>" +
 
+            "<div style=\"" +
+            "background:#e3f5ff;padding:22px;" +
+            "border-radius:18px;\">" +
 
-        /*
-        =====================================================
-        IMPORTANT
+            "<p><b>📌 Title:</b> " +
+            escapeEmailHTML(reminder.title) +
+            "</p>" +
 
-        user.email = email used during registration.
+            "<p><b>📂 Category:</b> " +
+            escapeEmailHTML(reminder.type) +
+            "</p>" +
 
-        Therefore reminder goes to:
-        SAME EMAIL USED FOR REGISTRATION.
-        =====================================================
-        */
+            "<p><b>📅 Date:</b> " +
+            escapeEmailHTML(reminder.reminder_date) +
+            "</p>" +
 
+            "<p><b>⏰ Time:</b> " +
+            escapeEmailHTML(reminder.reminder_time) +
+            "</p>" +
 
-        await transporter.sendMail({
+            "<p><b>📝 Description:</b> " +
+            escapeEmailHTML(
+                reminder.description || "No description"
+            ) +
+            "</p>" +
 
-            from:
-                `"Personal Buddy 🌸" <${GMAIL_USER}>`,
+            (
+                reminder.goal_type
+                    ? "<p><b>🎯 Goal Type:</b> " +
+                      escapeEmailHTML(reminder.goal_type) +
+                      "</p>"
+                    : ""
+            ) +
 
-            to:
-                user.email,
+            "</div>" +
 
-            subject:
-                "🔔 Personal Buddy Reminder: " +
-                reminder.title,
+            "<p style=\"color:#607d8b;margin-top:25px;\">" +
+            "Stay organized and take care of yourself 💙" +
+            "</p>" +
 
-            html:
-                "<!DOCTYPE html>" +
+            "<hr>" +
 
-                "<html>" +
+            "<p style=\"text-align:center;color:#999;\">" +
+            "Personal Buddy Automatic Email Reminder" +
+            "</p>" +
 
-                "<body style=\"" +
-                "margin:0;" +
-                "padding:30px;" +
-                "background:#ffeaf3;" +
-                "font-family:Arial,sans-serif;" +
-                "\">" +
-
-                "<div style=\"" +
-                "max-width:600px;" +
-                "margin:auto;" +
-                "background:white;" +
-                "padding:35px;" +
-                "border-radius:25px;" +
-                "box-shadow:0 10px 35px rgba(0,0,0,.12);" +
-                "\">" +
-
-                "<h1 style=\"" +
-                "text-align:center;" +
-                "color:#d63384;" +
-                "\">" +
-
-                "🌸 Personal Buddy" +
-
-                "</h1>" +
-
-                "<h2 style=\"color:#1976d2;\">" +
-
-                "Hello " +
-                escapeEmailHTML(user.name) +
-                " 👋" +
-
-                "</h2>" +
-
-                "<p>" +
-                "This is your Personal Buddy reminder." +
-                "</p>" +
-
-                "<div style=\"" +
-                "background:#e3f5ff;" +
-                "padding:22px;" +
-                "border-radius:18px;" +
-                "\">" +
-
-                "<p><b>📌 Title:</b> " +
-                escapeEmailHTML(
-                    reminder.title
-                ) +
-                "</p>" +
-
-                "<p><b>📂 Category:</b> " +
-                escapeEmailHTML(
-                    reminder.type
-                ) +
-                "</p>" +
-
-                "<p><b>📅 Date:</b> " +
-                escapeEmailHTML(
-                    reminder.reminder_date
-                ) +
-                "</p>" +
-
-                "<p><b>⏰ Time:</b> " +
-                escapeEmailHTML(
-                    reminder.reminder_time
-                ) +
-                "</p>" +
-
-                "<p><b>📝 Description:</b> " +
-                escapeEmailHTML(
-                    reminder.description ||
-                    "No description"
-                ) +
-                "</p>" +
-
-                (
-                    reminder.goal_type
-                        ? "<p><b>🎯 Goal Type:</b> " +
-                          escapeEmailHTML(
-                              reminder.goal_type
-                          ) +
-                          "</p>"
-                        : ""
-                ) +
-
-                "</div>" +
-
-                "<p style=\"" +
-                "color:#607d8b;" +
-                "margin-top:25px;" +
-                "\">" +
-
-                "Stay organized and take care of yourself 💙" +
-
-                "</p>" +
-
-                "<hr>" +
-
-                "<p style=\"" +
-                "text-align:center;" +
-                "color:#999;" +
-                "\">" +
-
-                "Personal Buddy Automatic Email Reminder" +
-
-                "</p>" +
-
-                "</div>" +
-
-                "</body>" +
-
-                "</html>"
-
-        });
+            "</div>" +
+            "</body>" +
+            "</html>";
 
 
-        db.prepare(`
-            UPDATE reminders
-            SET email_sent = 1
-            WHERE id = ?
-        `).run(
-            reminder.id
+        const response = await fetch(
+            "https://api.resend.com/emails",
+            {
+                method: "POST",
+
+                headers: {
+                    "Authorization":
+                        "Bearer " + RESEND_API_KEY,
+
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    from:
+                        "Personal Buddy 🌸 <onboarding@resend.dev>",
+
+                    to:
+                        [user.email],
+
+                    subject:
+                        "🔔 Personal Buddy Reminder: " +
+                        reminder.title,
+
+                    html:
+                        emailHTML
+                })
+            }
         );
+
+
+        const result = await response.json();
+
+
+        if (!response.ok) {
+
+            console.error(
+                "❌ RESEND EMAIL ERROR:"
+            );
+
+            console.error(result);
+
+            return false;
+        }
 
 
         console.log(
@@ -999,6 +954,11 @@ async function sendReminderEmail(
         );
 
         console.log(
+            "Resend ID:",
+            result.id
+        );
+
+        console.log(
             "================================================"
         );
 
@@ -1016,13 +976,9 @@ async function sendReminderEmail(
             error.message
         );
 
-
         return false;
-
     }
-
 }
-
 
 /* =========================================================
    EMAIL HTML ESCAPE
@@ -3254,6 +3210,7 @@ app.listen(
     () => {
 
         console.log(`
+console.log(`
 ============================================================
 
        🌸 PERSONAL BUDDY STARTED 🌸
@@ -3261,8 +3218,8 @@ app.listen(
        Open:
        http://localhost:${PORT}
 
-       Gmail Sender:
-       ${GMAIL_USER}
+       Email Service:
+       Resend
 
        Reminder Receiver:
        Registered User Email
