@@ -2575,7 +2575,7 @@ const currentTime =
                         {
                             body:
                                 reminder.title +
-                                "\n⏰ " +
+                                "\\n⏰ " +
                                 reminder.reminder_time
                         }
                     );
