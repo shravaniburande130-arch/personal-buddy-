@@ -138,32 +138,6 @@ app.use(
 );
 
 
-/* =========================================================
-   GMAIL TRANSPORTER
-========================================================= */
-
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-
-    auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD
-    }
-});
-
-
-/* =========================================================
-   GMAIL TRANSPORTER
-========================================================= */
-
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-
-    auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD
-    }
-});
 
 
 /* =========================================================
