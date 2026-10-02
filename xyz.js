@@ -3354,10 +3354,23 @@ app.get("/oauth2callback", async (req, res) => {
         }
 
         res.send(`
-            <h2>✅ Google Authorization Successful</h2>
-            <p>Refresh token received successfully.</p>
-            <p>Now we will add it to Render Environment Variables.</p>
-        `);
+    <h2>✅ Google Authorization Successful</h2>
+
+    <p>Refresh token received successfully.</p>
+
+    <p>
+        Copy the refresh token below and add it to Render
+        Environment Variables as:
+    </p>
+
+    <p><b>GOOGLE_REFRESH_TOKEN</b></p>
+
+    <pre>${tokens.refresh_token}</pre>
+
+    <p>
+        ⚠️ Keep this token private. Do not share it with anyone.
+    </p>
+`);
 
     } catch (error) {
 
