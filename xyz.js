@@ -848,15 +848,14 @@ async function sendReminderEmail(user, reminder) {
 
 
         const message =
-            "From: Personal Buddy <shravaniburande130@gmail.com>\r\n" +
-            "To: " + user.email + "\r\n" +
-            "Subject: 🔔 Personal Buddy Reminder: " +
-            reminder.title + "\r\n" +
-            "MIME-Version: 1.0\r\n" +
-            "Content-Type: text/html; charset=UTF-8\r\n" +
-            "\r\n" +
-            emailHTML;
-
+    "From: shravaniburande130@gmail.com\r\n" +
+    "To: " + user.email + "\r\n" +
+    "Subject: Personal Buddy Reminder - " +
+    reminder.title + "\r\n" +
+    "MIME-Version: 1.0\r\n" +
+    "Content-Type: text/html; charset=UTF-8\r\n" +
+    "\r\n" +
+    emailHTML;
 
         const encodedMessage =
             Buffer
