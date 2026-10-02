@@ -140,45 +140,7 @@ app.use(
 
 
 
-/* =========================================================
-   GMAIL CONNECTION TEST
-========================================================= */
 
-if (
-    GMAIL_USER !== "YOUR_GMAIL@gmail.com" &&
-    GMAIL_APP_PASSWORD !==
-        "YOUR_16_DIGIT_GMAIL_APP_PASSWORD"
-) {
-
-    transporter.verify((error) => {
-
-        if (error) {
-
-            console.error(
-                "❌ Gmail connection failed:"
-            );
-
-            console.error(
-                error.message
-            );
-
-        } else {
-
-            console.log(
-                "✅ Gmail SMTP connection successful!"
-            );
-
-        }
-
-    });
-
-} else {
-
-    console.log(
-        "⚠️ Gmail is not configured yet."
-    );
-
-}
 /* =========================================================
    LOGIN CHECK
 ========================================================= */
