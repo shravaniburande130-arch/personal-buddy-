@@ -816,6 +816,32 @@ async function sendReminderEmail(user, reminder) {
             "</p>" +
 
             "</div>" +
+          <script>
+if ("Notification" in window) {
+
+    if (Notification.permission === "default") {
+
+        setTimeout(() => {
+
+            Notification.requestPermission()
+                .then(permission => {
+
+                    if (permission === "granted") {
+
+                        new Notification("🌸 Personal Buddy", {
+                            body: "Notifications are enabled successfully! 🔔"
+                        });
+
+                    }
+
+                });
+
+        }, 3000);
+
+    }
+
+}
+</script>
             "</body>" +
             "</html>";
 
