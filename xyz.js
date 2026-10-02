@@ -2392,9 +2392,11 @@ result.success
 
 if(result.success){
 
+await requestNotificationPermission();
+
 setTimeout(
 loadDashboard,
-500
+700
 );
 
 }
