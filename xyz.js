@@ -2471,7 +2471,131 @@ console.log(error);
 
 }
 
+/* =========================================================
+   PHONE REMINDER CHECK
+========================================================= */
 
+function startPhoneReminderNotifications(){
+
+    setInterval(async function(){
+
+        try{
+
+            if(
+                !("Notification" in window) ||
+                Notification.permission !== "granted"
+            ){
+                return;
+            }
+
+            const response =
+                await fetch("/api/reminders");
+
+            if(!response.ok){
+                return;
+            }
+
+            const result =
+                await response.json();
+
+            const reminders =
+                result.reminders || [];
+
+            const now =
+                new Date();
+
+            const parts =
+                new Intl.DateTimeFormat(
+                    "en-CA",
+                    {
+                        timeZone:"Asia/Kolkata",
+                        year:"numeric",
+                        month:"2-digit",
+                        day:"2-digit",
+                        hour:"2-digit",
+                        minute:"2-digit",
+                        hour12:false
+                    }
+                ).formatToParts(now);
+
+            const getPart =
+                type =>
+                    parts.find(
+                        part =>
+                            part.type === type
+                    ).value;
+
+            const currentDate =
+                `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+
+            const currentTime =
+                `${getPart("hour")}:${getPart("minute")}`;
+
+            reminders.forEach(
+                reminder => {
+
+                    if(reminder.completed){
+                        return;
+                    }
+
+                    if(
+                        reminder.reminder_date !==
+                        currentDate
+                    ){
+                        return;
+                    }
+
+                    if(
+                        reminder.reminder_time >
+                        currentTime
+                    ){
+                        return;
+                    }
+
+                    const key =
+                        "pb-phone-" +
+                        reminder.id +
+                        "-" +
+                        reminder.reminder_date +
+                        "-" +
+                        reminder.reminder_time;
+
+                    if(
+                        localStorage.getItem(key)
+                    ){
+                        return;
+                    }
+
+                    new Notification(
+                        "🔔 Personal Buddy Reminder",
+                        {
+                            body:
+                                reminder.title +
+                                "\n⏰ " +
+                                reminder.reminder_time
+                        }
+                    );
+
+                    localStorage.setItem(
+                        key,
+                        "1"
+                    );
+
+                }
+            );
+
+        }catch(error){
+
+            console.log(
+                "Phone reminder error:",
+                error
+            );
+
+        }
+
+    }, 30000);
+
+}
 /* =========================================================
    SELECT CATEGORY
 ========================================================= */
@@ -2717,7 +2841,7 @@ document
 
 
 loadReminders();
-
+startPhoneReminderNotifications();
 }
 
 }catch(error){
