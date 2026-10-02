@@ -747,17 +747,29 @@ app.delete(
 
 
 /* =========================================================
-   SEND REMINDER EMAIL - RESEND
+   SEND REMINDER EMAIL - GMAIL API
 ========================================================= */
 
 async function sendReminderEmail(user, reminder) {
 
     try {
 
-        if (!RESEND_API_KEY) {
-            console.log("❌ RESEND_API_KEY is not configured.");
+        const GOOGLE_REFRESH_TOKEN =
+            process.env.GOOGLE_REFRESH_TOKEN;
+
+        if (!GOOGLE_REFRESH_TOKEN) {
+
+            console.log(
+                "❌ GOOGLE_REFRESH_TOKEN is not configured."
+            );
+
             return false;
         }
+
+        oauth2Client.setCredentials({
+            refresh_token: GOOGLE_REFRESH_TOKEN
+        });
+
 
         const emailHTML =
             "<!DOCTYPE html>" +
@@ -830,55 +842,48 @@ async function sendReminderEmail(user, reminder) {
             "</p>" +
 
             "</div>" +
-        
+
             "</body>" +
             "</html>";
 
 
-        const response = await fetch(
-            "https://api.resend.com/emails",
-            {
-                method: "POST",
-
-                headers: {
-                    "Authorization":
-                        "Bearer " + RESEND_API_KEY,
-
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body: JSON.stringify({
-                    from:
-                        "Personal Buddy 🌸 <onboarding@resend.dev>",
-
-                    to:
-                        [user.email],
-
-                    subject:
-                        "🔔 Personal Buddy Reminder: " +
-                        reminder.title,
-
-                    html:
-                        emailHTML
-                })
-            }
-        );
+        const message =
+            "From: Personal Buddy <shravaniburande130@gmail.com>\r\n" +
+            "To: " + user.email + "\r\n" +
+            "Subject: 🔔 Personal Buddy Reminder: " +
+            reminder.title + "\r\n" +
+            "MIME-Version: 1.0\r\n" +
+            "Content-Type: text/html; charset=UTF-8\r\n" +
+            "\r\n" +
+            emailHTML;
 
 
-        const result = await response.json();
+        const encodedMessage =
+            Buffer
+                .from(message, "utf8")
+                .toString("base64")
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
 
 
-        if (!response.ok) {
+        const gmail =
+            google.gmail({
+                version: "v1",
+                auth: oauth2Client
+            });
 
-            console.error(
-                "❌ RESEND EMAIL ERROR:"
-            );
 
-            console.error(result);
+        const response =
+            await gmail.users.messages.send({
 
-            return false;
-        }
+                userId: "me",
+
+                requestBody: {
+                    raw: encodedMessage
+                }
+
+            });
 
 
         console.log(
@@ -905,8 +910,8 @@ async function sendReminderEmail(user, reminder) {
         );
 
         console.log(
-            "Resend ID:",
-            result.id
+            "Gmail Message ID:",
+            response.data.id
         );
 
         console.log(
@@ -920,10 +925,11 @@ async function sendReminderEmail(user, reminder) {
     } catch (error) {
 
         console.error(
-            "❌ EMAIL ERROR:"
+            "❌ GMAIL API EMAIL ERROR:"
         );
 
         console.error(
+            error.response?.data ||
             error.message
         );
 
