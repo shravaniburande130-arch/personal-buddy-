@@ -982,11 +982,14 @@ async function checkReminders() {
                 part => part.type === type
             ).value;
 
-        const currentDate =
-            `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+       const currentDate =
+    getPart("year") + "-" +
+    getPart("month") + "-" +
+    getPart("day");
 
-        const currentTime =
-            `${getPart("hour")}:${getPart("minute")}`;
+const currentTime =
+    getPart("hour") + ":" +
+    getPart("minute");
 
         console.log(
             `🕐 Checking reminders: ${currentDate} ${currentTime} IST`
