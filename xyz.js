@@ -65,9 +65,23 @@ const PORT = process.env.PORT || 3000;
    Registration Email = Reminder Email
 */
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const { google } = require("googleapis");
 
-const RESEND_FROM_EMAIL = "onboarding@resend.dev";
+const GOOGLE_CLIENT_ID =
+    process.env.GOOGLE_CLIENT_ID;
+
+const GOOGLE_CLIENT_SECRET =
+    process.env.GOOGLE_CLIENT_SECRET;
+
+const GOOGLE_REDIRECT_URI =
+    process.env.GOOGLE_REDIRECT_URI;
+
+const oauth2Client =
+    new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_REDIRECT_URI
+    );
 
 
 /* =========================================================
@@ -3317,7 +3331,58 @@ app.get(
 /* =========================================================
    START SERVER
 ========================================================= */
+app.get("/auth/google", (req, res) => {
+app.get("/oauth2callback", async (req, res) => {
 
+    try {
+
+        const code = req.query.code;
+
+        if (!code) {
+            return res.status(400).send(
+                "Authorization code missing."
+            );
+        }
+
+        const { tokens } =
+            await oauth2Client.getToken(code);
+
+        if (!tokens.refresh_token) {
+            return res.status(400).send(
+                "Refresh token not received. Please authorize again."
+            );
+        }
+
+        res.send(`
+            <h2>✅ Google Authorization Successful</h2>
+            <p>Refresh token received successfully.</p>
+            <p>Now we will add it to Render Environment Variables.</p>
+        `);
+
+    } catch (error) {
+
+        console.error(
+            "❌ Google authorization error:",
+            error.message
+        );
+
+        res.status(500).send(
+            "Google authorization failed."
+        );
+    }
+});
+    const authUrl = oauth2Client.generateAuthUrl({
+        access_type: "offline",
+
+        scope: [
+            "https://www.googleapis.com/auth/gmail.send"
+        ],
+
+        prompt: "consent"
+    });
+
+    res.redirect(authUrl);
+});
 app.listen(
     PORT,
     () => {
