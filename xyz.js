@@ -848,7 +848,7 @@ async function sendReminderEmail(user, reminder) {
 
 
         const message =
-    "From: shravaniburande130@gmail.com\r\n" +
+   "From: Personal Buddy <shravaniburande130@gmail.com>\r\n" +
     "To: " + user.email + "\r\n" +
     "Subject: Personal Buddy Reminder - " +
     reminder.title + "\r\n" +
