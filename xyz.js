@@ -65,8 +65,8 @@ const PORT = process.env.PORT || 3000;
    Registration Email = Reminder Email
 */
 
-const GMAIL_USER = "shravaniburande130@gmail.com";
-const GMAIL_APP_PASSWORD = "fkco qgyg efbg vgjy";
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 
 
 /* =========================================================
@@ -1061,152 +1061,185 @@ function escapeEmailHTML(value) {
 
 
 /* =========================================================
-   AUTOMATIC REMINDER CHECKER
+   CHECK REMINDERS - INDIA TIME (IST)
 ========================================================= */
 
 async function checkReminders() {
 
     try {
 
-        const now =
-            new Date();
+        // Current India time
+        const now = new Date();
 
+        const indiaTime = new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone: "Asia/Kolkata",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }
+        ).formatToParts(now);
 
-        const year =
-            now.getFullYear();
-
-
-        const month =
-            String(
-                now.getMonth() + 1
-            ).padStart(
-                2,
-                "0"
-            );
-
-
-        const day =
-            String(
-                now.getDate()
-            ).padStart(
-                2,
-                "0"
-            );
-
-
-        const hour =
-            String(
-                now.getHours()
-            ).padStart(
-                2,
-                "0"
-            );
-
-
-        const minute =
-            String(
-                now.getMinutes()
-            ).padStart(
-                2,
-                "0"
-            );
-
+        const getPart = (type) =>
+            indiaTime.find(
+                part => part.type === type
+            ).value;
 
         const currentDate =
-            `${year}-${month}-${day}`;
-
+            `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
 
         const currentTime =
-            `${hour}:${minute}`;
+            `${getPart("hour")}:${getPart("minute")}`;
+
+        console.log(
+            `🕐 Checking reminders: ${currentDate} ${currentTime} IST`
+        );
 
 
-        const reminders =
-            db.prepare(`
-                SELECT
-                    reminders.*,
-                    users.name,
-                    users.email
-                FROM reminders
+        /* =====================================================
+           FIND DUE REMINDERS
+        ===================================================== */
 
-                JOIN users
-                ON users.id = reminders.user_id
+        const reminders = db.prepare(`
 
-                WHERE
-                    reminders.reminder_date = ?
+            SELECT
+                reminders.*,
+                users.name,
+                users.email
 
-                AND
-                    reminders.reminder_time = ?
+            FROM reminders
 
-                AND
-                    reminders.completed = 0
+            JOIN users
+            ON users.id = reminders.user_id
 
-                AND
-                    reminders.email_sent = 0
-            `).all(
+            WHERE
+                reminders.reminder_date = ?
 
-                currentDate,
+            AND
+                reminders.reminder_time <= ?
 
-                currentTime
+            AND
+                reminders.completed = 0
 
-            );
+            AND
+                reminders.email_sent = 0
+
+        `).all(
+
+            currentDate,
+            currentTime
+
+        );
 
 
-        if (reminders.length > 0) {
+        if (reminders.length === 0) {
 
             console.log(
-                `🔔 ${reminders.length} reminder(s) found at ${currentDate} ${currentTime}`
+                "📭 No reminders due."
             );
 
+            return;
         }
 
+
+        console.log(
+            `🔔 ${reminders.length} reminder(s) found.`
+        );
+
+
+        /* =====================================================
+           SEND EMAIL
+        ===================================================== */
 
         for (
             const reminder
             of reminders
         ) {
 
-            await sendReminderEmail(
+            try {
 
-                {
-                    name:
-                        reminder.name,
+                console.log(
+                    `📧 Sending reminder: ${reminder.title}`
+                );
 
-                    email:
-                        reminder.email
-                },
+                console.log(
+                    `📩 To: ${reminder.email}`
+                );
 
-                reminder
 
-            );
+                await sendReminderEmail(
+
+                    {
+                        name:
+                            reminder.name,
+
+                        email:
+                            reminder.email
+                    },
+
+                    reminder
+
+                );
+
+
+                /* =============================================
+                   MARK EMAIL AS SENT ONLY AFTER SUCCESS
+                ============================================= */
+
+                db.prepare(`
+
+                    UPDATE reminders
+
+                    SET email_sent = 1
+
+                    WHERE id = ?
+
+                `).run(
+
+                    reminder.id
+
+                );
+
+
+                console.log(
+                    `✅ Email sent successfully: ${reminder.title}`
+                );
+
+            }
+
+            catch (emailError) {
+
+                console.error(
+                    `❌ Failed to send email for reminder ${reminder.id}:`
+                );
+
+                console.error(
+                    emailError.message
+                );
+
+            }
 
         }
 
+    }
 
-    } catch (error) {
+    catch (error) {
 
         console.error(
-            "❌ CRON ERROR:",
+            "❌ checkReminders() error:"
+        );
+
+        console.error(
             error.message
         );
 
     }
 
 }
-
-
-/*
-   Check every minute.
-   Asia/Kolkata = Indian Standard Time.
-*/
-
-cron.schedule(
-    "* * * * *",
-    checkReminders,
-    {
-        timezone:
-            "Asia/Kolkata"
-    }
-);
 
 
 /* =========================================================
