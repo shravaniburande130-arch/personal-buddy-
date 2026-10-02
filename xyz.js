@@ -2308,7 +2308,7 @@ result.success
 
 
 if(result.success){
-
+await requestNotificationPermission();
 setTimeout(
 loadDashboard,
 700
@@ -2462,7 +2462,7 @@ result.user.name;
 
 loadReminders();
 
-
+startPhoneReminderNotifications();
 }catch(error){
 
 console.log(error);
@@ -2471,7 +2471,135 @@ console.log(error);
 
 }
 
+/* =========================================================
+   PHONE REMINDER NOTIFICATIONS
+========================================================= */
 
+function startPhoneReminderNotifications(){
+
+    setInterval(async function(){
+
+        try{
+
+            if(
+                !("Notification" in window) ||
+                Notification.permission !== "granted"
+            ){
+                return;
+            }
+
+            const response =
+                await fetch("/api/reminders");
+
+            if(!response.ok){
+                return;
+            }
+
+            const result =
+                await response.json();
+
+            const now =
+                new Date();
+
+            const indiaParts =
+                new Intl.DateTimeFormat(
+                    "en-CA",
+                    {
+                        timeZone:"Asia/Kolkata",
+                        year:"numeric",
+                        month:"2-digit",
+                        day:"2-digit",
+                        hour:"2-digit",
+                        minute:"2-digit",
+                        hour12:false
+                    }
+                ).formatToParts(now);
+
+            const getPart =
+                (type) =>
+                    indiaParts.find(
+                        part =>
+                            part.type === type
+                    ).value;
+
+            const currentDate =
+                `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+
+            const currentTime =
+                `${getPart("hour")}:${getPart("minute")}`;
+
+            const reminders =
+                result.reminders || [];
+
+            reminders.forEach(
+                reminder => {
+
+                    if(
+                        reminder.completed
+                    ){
+                        return;
+                    }
+
+                    if(
+                        reminder.reminder_date !==
+                        currentDate
+                    ){
+                        return;
+                    }
+
+                    if(
+                        reminder.reminder_time >
+                        currentTime
+                    ){
+                        return;
+                    }
+
+                    const notificationKey =
+                        "pb-notified-" +
+                        reminder.id +
+                        "-" +
+                        reminder.reminder_date +
+                        "-" +
+                        reminder.reminder_time;
+
+                    if(
+                        localStorage.getItem(
+                            notificationKey
+                        )
+                    ){
+                        return;
+                    }
+
+                    new Notification(
+                        "🔔 Personal Buddy Reminder",
+                        {
+                            body:
+                                reminder.title +
+                                "\n⏰ " +
+                                reminder.reminder_time
+                        }
+                    );
+
+                    localStorage.setItem(
+                        notificationKey,
+                        "1"
+                    );
+
+                }
+            );
+
+        }catch(error){
+
+            console.log(
+                "Phone notification error:",
+                error
+            );
+
+        }
+
+    }, 30000);
+
+}
 /* =========================================================
    SELECT CATEGORY
 ========================================================= */
@@ -3062,7 +3190,37 @@ error
 }
 
 }
+/* =========================================================
+   PHONE NOTIFICATION PERMISSION
+========================================================= */
 
+async function requestNotificationPermission(){
+
+    if (!("Notification" in window)) {
+        console.log("Browser notifications are not supported.");
+        return;
+    }
+
+    if (Notification.permission === "default") {
+
+        const permission =
+            await Notification.requestPermission();
+
+        if (permission === "granted") {
+
+            new Notification(
+                "🌸 Personal Buddy",
+                {
+                    body:
+                        "Phone notifications are enabled! 🔔"
+                }
+            );
+
+        }
+
+    }
+
+}
 
 /* =========================================================
    CHECK SESSION
