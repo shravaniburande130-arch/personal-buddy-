@@ -2465,7 +2465,7 @@ result.user.name;
 
 loadReminders();
 
-
+startPhoneReminderNotifications();
 }catch(error){
 
 console.log(error);
