@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     goal_type TEXT,
     completed INTEGER DEFAULT 0,
     email_sent INTEGER DEFAULT 0,
+    early_email_sent INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY(user_id)
@@ -120,7 +121,14 @@ CREATE TABLE IF NOT EXISTS reminders (
     ON DELETE CASCADE
 );
 `);
-
+try {
+    db.prepare(`
+        ALTER TABLE reminders
+        ADD COLUMN early_email_sent INTEGER DEFAULT 0
+    `).run();
+} catch (error) {
+    // Column already exists
+}
 
 /* =========================================================
    EXPRESS
@@ -976,11 +984,14 @@ function escapeEmailHTML(value) {
    CHECK REMINDERS - INDIA TIME (IST)
 ========================================================= */
 
+/* =========================================================
+   CHECK REMINDERS - 5 MINUTES BEFORE + EXACT TIME
+========================================================= */
+
 async function checkReminders() {
 
     try {
 
-        // Current India time
         const now = new Date();
 
         const indiaTime = new Intl.DateTimeFormat(
@@ -1001,23 +1012,19 @@ async function checkReminders() {
                 part => part.type === type
             ).value;
 
-       const currentDate =
-    getPart("year") + "-" +
-    getPart("month") + "-" +
-    getPart("day");
+        const currentDate =
+            getPart("year") + "-" +
+            getPart("month") + "-" +
+            getPart("day");
 
-const currentTime =
-    getPart("hour") + ":" +
-    getPart("minute");
+        const currentTime =
+            getPart("hour") + ":" +
+            getPart("minute");
 
         console.log(
             `🕐 Checking reminders: ${currentDate} ${currentTime} IST`
         );
 
-
-        /* =====================================================
-           FIND DUE REMINDERS
-        ===================================================== */
 
         const reminders = db.prepare(`
 
@@ -1035,40 +1042,27 @@ const currentTime =
                 reminders.reminder_date = ?
 
             AND
-                reminders.reminder_time <= ?
-
-            AND
                 reminders.completed = 0
 
             AND
-                reminders.email_sent = 0
+                (
+                    reminders.early_email_sent = 0
+                    OR
+                    reminders.email_sent = 0
+                )
 
-        `).all(
-
-            currentDate,
-            currentTime
-
-        );
+        `).all(currentDate);
 
 
         if (reminders.length === 0) {
 
             console.log(
-                "📭 No reminders due."
+                "📭 No reminders to process."
             );
 
             return;
         }
 
-
-        console.log(
-            `🔔 ${reminders.length} reminder(s) found.`
-        );
-
-
-        /* =====================================================
-           SEND EMAIL
-        ===================================================== */
 
         for (
             const reminder
@@ -1077,63 +1071,168 @@ const currentTime =
 
             try {
 
-                console.log(
-                    `📧 Sending reminder: ${reminder.title}`
-                );
+                const [reminderHour, reminderMinute] =
+                    reminder.reminder_time
+                        .split(":")
+                        .map(Number);
 
-                console.log(
-                    `📩 To: ${reminder.email}`
-                );
-
-
-                await sendReminderEmail(
-
-                    {
-                        name:
-                            reminder.name,
-
-                        email:
-                            reminder.email
-                    },
-
-                    reminder
-
-                );
+                const [currentHour, currentMinute] =
+                    currentTime
+                        .split(":")
+                        .map(Number);
 
 
-                /* =============================================
-                   MARK EMAIL AS SENT ONLY AFTER SUCCESS
-                ============================================= */
+                const reminderTotalMinutes =
+                    reminderHour * 60 +
+                    reminderMinute;
 
-                db.prepare(`
-
-                    UPDATE reminders
-
-                    SET email_sent = 1
-
-                    WHERE id = ?
-
-                `).run(
-
-                    reminder.id
-
-                );
+                const currentTotalMinutes =
+                    currentHour * 60 +
+                    currentMinute;
 
 
-                console.log(
-                    `✅ Email sent successfully: ${reminder.title}`
-                );
+                const minutesUntil =
+                    reminderTotalMinutes -
+                    currentTotalMinutes;
+
+
+                /* =====================================================
+                   5 MINUTES BEFORE
+                ===================================================== */
+
+                if (
+                    minutesUntil === 5 &&
+                    reminder.early_email_sent === 0
+                ) {
+
+                    console.log(
+                        `⏰ 5 MINUTES BEFORE: ${reminder.title}`
+                    );
+
+                    console.log(
+                        `📩 To: ${reminder.email}`
+                    );
+
+
+                    const sent =
+                        await sendReminderEmail(
+
+                            {
+                                name:
+                                    reminder.name,
+
+                                email:
+                                    reminder.email
+                            },
+
+                            reminder
+
+                        );
+
+
+                    if (sent) {
+
+                        db.prepare(`
+
+                            UPDATE reminders
+
+                            SET early_email_sent = 1
+
+                            WHERE id = ?
+
+                        `).run(
+                            reminder.id
+                        );
+
+
+                        console.log(
+                            `✅ 5-minute email sent: ${reminder.title}`
+                        );
+
+                    } else {
+
+                        console.log(
+                            `❌ 5-minute email failed: ${reminder.title}`
+                        );
+
+                    }
+
+                }
+
+
+                /* =====================================================
+                   EXACT REMINDER TIME
+                ===================================================== */
+
+                if (
+                    minutesUntil <= 0 &&
+                    reminder.email_sent === 0
+                ) {
+
+                    console.log(
+                        `🔔 EXACT TIME: ${reminder.title}`
+                    );
+
+                    console.log(
+                        `📩 To: ${reminder.email}`
+                    );
+
+
+                    const sent =
+                        await sendReminderEmail(
+
+                            {
+                                name:
+                                    reminder.name,
+
+                                email:
+                                    reminder.email
+                            },
+
+                            reminder
+
+                        );
+
+
+                    if (sent) {
+
+                        db.prepare(`
+
+                            UPDATE reminders
+
+                            SET email_sent = 1
+
+                            WHERE id = ?
+
+                        `).run(
+                            reminder.id
+                        );
+
+
+                        console.log(
+                            `✅ Exact-time email sent: ${reminder.title}`
+                        );
+
+                    } else {
+
+                        console.log(
+                            `❌ Exact-time email failed: ${reminder.title}`
+                        );
+
+                    }
+
+                }
 
             }
 
-            catch (emailError) {
+            catch (reminderError) {
 
                 console.error(
-                    `❌ Failed to send email for reminder ${reminder.id}:`
+                    `❌ Reminder processing error for ${reminder.id}:`
                 );
 
                 console.error(
-                    emailError.message
+                    reminderError.message
                 );
 
             }
@@ -1155,6 +1254,25 @@ const currentTime =
     }
 
 }
+
+
+/* =========================================================
+   REMINDER CRON
+========================================================= */
+
+cron.schedule(
+    "* * * * *",
+    async () => {
+
+        console.log("⏰ Cron running...");
+
+        await checkReminders();
+
+    },
+    {
+        timezone: "Asia/Kolkata"
+    }
+);
 
 /* =========================================================
    REMINDER CRON
